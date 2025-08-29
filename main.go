@@ -17,7 +17,13 @@ func main() {
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 1024)
+	fileInfo, err := file.Stat()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("File Size: ", fileInfo.Size())
+
+	buffer := make([]byte, fileInfo.Size())
 	fileDec, err := cipher.NewRot128Reader(file)
 	if err != nil {
 		fmt.Println(err)
@@ -33,5 +39,7 @@ func main() {
 		}
 		fmt.Printf("Read %d bytes: %s\n", n, string(buffer[:n]))
 	}
+
+	fmt.Printf("end Read %d bytes: %s\n", len(buffer), string(buffer))
 
 }

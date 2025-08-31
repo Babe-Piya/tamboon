@@ -1,17 +1,26 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
+	"Babe-Piya/tamboo/adapter/rest/payment"
 	"Babe-Piya/tamboo/cipher"
+	"Babe-Piya/tamboo/config"
+	"Babe-Piya/tamboo/service"
 )
 
 func main() {
-	fmt.Println("Hello World")
-	file, err := os.Open("data/fng.1000.csv.rot128")
+	conf := config.LoadConfig("config.yaml")
+	paymentAPI := payment.NewOmiseAPI(conf.Omise.PublicKey, conf.Omise.SecretKey)
+	songPahPaService := service.NewSongPahPaService(paymentAPI)
+
+	filePath := os.Args[1]
+	file, err := os.Open(filePath)
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +30,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("File Size: ", fileInfo.Size())
 
 	buffer := make([]byte, fileInfo.Size())
 	fileDec, err := cipher.NewRot128Reader(file)
@@ -30,16 +38,27 @@ func main() {
 	}
 
 	for {
-		n, errRead := fileDec.Read(buffer)
+		_, errRead := fileDec.Read(buffer)
 		if errRead != nil {
 			if errRead == io.EOF {
 				break
 			}
 			log.Fatalf("Error reading chunk: %v", err)
 		}
-		fmt.Printf("Read %d bytes: %s\n", n, string(buffer[:n]))
 	}
 
-	fmt.Printf("end Read %d bytes: %s\n", len(buffer), string(buffer))
+	reader := bytes.NewReader(buffer)
+	csvReader := csv.NewReader(reader)
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		fmt.Println("Error reading CSV:", err)
+		return
+	}
+
+	if len(records) > 0 {
+		records = records[1:]
+	}
+
+	songPahPaService.Donate(records)
 
 }
